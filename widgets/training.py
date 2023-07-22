@@ -1,17 +1,28 @@
 from typing import List
 
+import torch
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QValidator, QIntValidator, QDoubleValidator
 from PyQt5.QtWidgets import QFrame, QLabel, QLineEdit, QGridLayout, QTextEdit, QHBoxLayout, QVBoxLayout, QWidget, \
     QLayout
 from qfluentwidgets import NavigationWidget, ComboBox, SpinBox, LineEdit, PrimaryPushButton
 from qfluentwidgets import SwitchButton
+import matplotlib
+matplotlib.use("Qt5Agg")  # 声明使用QT5
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+
+import models
+from run_backdoor import boot_backdoor
+from utils.params import Params
 
 
 class TrainingWidget(QFrame):
     """
     训练模型的 Widget
     """
+
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         # 全局布局
@@ -36,7 +47,8 @@ class TrainingWidget(QFrame):
         self.optimizer = self.get_combobox(['sgd', 'adam'])
         row = add_widgets(base_layout, 'optimizer', self.optimizer, row)
 
-        self.global_epochs = self.get_lineedit(QIntValidator(self), 10, 120, '100')
+        # todo change back to 100
+        self.global_epochs = self.get_lineedit(QIntValidator(self), 10, 120, '2')
         row = add_widgets(base_layout, '全局训练轮次', self.global_epochs, row)
 
         self.batch_size = self.get_lineedit(QIntValidator(self), 10, 100, '64')
@@ -76,7 +88,7 @@ class TrainingWidget(QFrame):
         self.trigger_label = self.get_lineedit(QIntValidator(self), 0, 10, '1')
         row = add_widgets(attack_layout, '目标标签', self.trigger_label, row)
 
-        self.trigger_path = self.get_combobox(['./trigger_10', './trigger_white'])
+        self.trigger_path = self.get_combobox(['trigger_10', 'trigger_white'])
         row = add_widgets(attack_layout, '触发器样式', self.trigger_path, row)
 
         self.trigger_size = self.get_lineedit(QIntValidator(self), 0, 20, '5')
@@ -107,12 +119,11 @@ class TrainingWidget(QFrame):
         self.clip = self.get_switch()
         row = add_widgets(defense_layout, '是否使用剪枝', self.clip, row)
 
-        # right
-
+        '''
+        LEFT ZONE
+        '''
         left_box = QWidget(self)
-        right_box = QWidget(self)
         left_box.setLayout(left_layout)
-        right_box.setLayout(right_layout)
 
         # basic settings
         base_box = QWidget(left_box)
@@ -131,10 +142,17 @@ class TrainingWidget(QFrame):
         left_layout.addWidget(attack_box)
         left_layout.addWidget(defense_box)
 
-        train_btn = PrimaryPushButton('开始训练', self)
-        train_btn.clicked.connect(self.start_training)
-        left_layout.addWidget(train_btn, alignment=Qt.AlignCenter)
+        self.train_btn = PrimaryPushButton('开始训练', self)
+        self.train_btn.clicked.connect(self.start_training)
+        left_layout.addWidget(self.train_btn, alignment=Qt.AlignCenter)
         left_layout.addStretch(1)
+
+        '''
+        RIGHT ZONE
+        '''
+        right_box = QWidget(self)
+        right_box.setLayout(right_layout)
+
 
         global_layout.addWidget(left_box, 0, 0)
         global_layout.addWidget(right_box, 0, 1)
@@ -145,32 +163,29 @@ class TrainingWidget(QFrame):
         """
         开始训练
         """
-        # construct params
-        args = dict()
-        # basic settings
-        args.dataset = self.datasets.text()
-        args.models = self.models.text()
-        args.optimizer = self.optimizer.text()
-        args.global_epochs = int(self.global_epochs.text())
-        args.batch_size = int(self.batch_size.text())
-        args.lr = float(self.lr.text())
-        args.total_workers = int(self.total_workers.text())
-        args.global_lr = float(self.global_lr.text())
-        args.adversary_num = int(self.adversary_num.text())
-        args.local_epochs = int(self.local_epochs.text())
-        args.save_model = self.save_model.isChecked()
-        # attack settings
-        args.attack = self.attack.isChecked()
-        args.poisoning_rate = float(self.poisoning_rate.text())
-        args.trigger_label = int(self.trigger_label.text())
-        args.trigger_path = self.trigger_path.text()
-        args.trigger_size = int(self.trigger_size.text())
-        args.need_scale = self.need_scale.isChecked()
-        args.weight_scale = int(self.weight_scale.text())
-        epochs = list(range(40))
-        args.attack_epochs = epochs[int(self.attack_epochs.text()):]
-        # defense settings
+        # Disable button
+        # self.train_btn.setEnabled(False)
 
+        # Construct params
+        args = Params(self)
+        print('Params inited.')
+
+        # Start training
+        # prefix = boot_backdoor(args)
+        prefix = ''
+
+
+
+        # Load model
+        model = models.get_model('badnets')
+        model.load_state_dict(torch.load('./saved_models/2023-05-29-10-42-40.pth.tar'))
+        print('Model loaded.')
+
+        # Draw pic
+
+
+        # Enable button
+        # self.train_btn.setEnabled(True)
 
     def get_combobox(self, options: List):
         """

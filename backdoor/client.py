@@ -30,6 +30,7 @@ class Client(BaseClient):
             scale_update(self.args.weight_scale, local_update)
         return local_update
 
+
 def scale_update(weight_scale: int, local_update: Dict[str, torch.Tensor]):
     for name, value in local_update.items():
         value.mul_(weight_scale)
